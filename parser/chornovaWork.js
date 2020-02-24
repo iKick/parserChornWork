@@ -4,43 +4,45 @@ const _ = require('lodash');
 const fs = require('fs');
 
 const idsToUrls = require('../constants/ourIdToThey');
+const { allWorks } = require('../constants/works/workIdByWorkInfo');
 
 const getPrice = (text) => {
-  return text.split('грн')[0].replace(/\D/g,'')
+  return Number(text.split('грн')[0].replace(/\D/g,''));
 };
 
 const index = async () => {
 
-  const chornovaWork = {};
+  const worksBackend = {};
 
   for (const id of Object.keys(idsToUrls)) {
       const html = await fetch(idsToUrls[id]).then(res => res.text());
       const $ = cheerio.load(html);
-
-      const workPriceByRegion = {};
+      const works = [];
+      const worksWasPars = [];
     $('.pricelist li').each((i, elem) =>{
-
-      const params = [
-        {includesText: 'Грунтовка под стяжку цены', workKey: 'gruntovkaPodStyazhku'},
-        {includesText: 'Цементно-песчаная стяжка до 4 см', workKey: 'cementnoPeschanayaStyazhka'},
-        {includesText: 'Грунтовка стен, потолка', workKey: 'gruntovkaStenPotolka'},
-        {includesText: 'Подготовка бетонного потолка под покраску или обои', workKey: 'podgotovkaBetonnogoPotolka'},
-        {includesText: 'Подготовка бетонной стены под покраску или обои', workKey: 'podgotovkaBetonnojSteny'},
-      ];
-
       const text = $(elem).text();
-      params.forEach(({ includesText, workKey }) => {
-        if(text.includes(includesText)) {
-          workPriceByRegion[workKey] = getPrice(text);
+
+      allWorks.forEach(({ id, includesText, type, target, info, materialPrice }) => {
+        if(text.includes(includesText) && !worksWasPars.includes(includesText)) {
+          worksWasPars.push(includesText);
+          works.push({
+            id,
+            name: includesText,
+            price: getPrice(text),
+            type,
+            target,
+            info,
+            materialPrice,
+          });
         }
       });
 
     });
       // console.log(workPriceByRegion);
-      chornovaWork[id] = workPriceByRegion;
+    worksBackend[id] = works;
   }
 
-  fs.writeFileSync('test.json', JSON.stringify(chornovaWork), 'utf8', (err) => {
+  fs.writeFileSync('worksBackend.json', JSON.stringify(worksBackend), 'utf8', (err) => {
     if (err) throw err;
     console.log('The file has been saved!');
   });
